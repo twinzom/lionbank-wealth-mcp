@@ -1,0 +1,101 @@
+[
+  {
+    "id": "brokerage-commission-discount",
+    "title": "Trade More, Pay Less",
+    "teaser": "Get up to 50% off online stock trading commissions for your first 90 days.",
+    "detail": "New and existing Private Banking clients who fund a brokerage account can enjoy discounted commissions on equity and ETF trades across major exchanges.",
+    "relevance_hint": "questions about stock trading, equities, brokerage fees, or building an investment portfolio",
+    "cta_label": "See trading offer",
+    "cta_url": "https://privatebanking.hsbc.com/campaigns/trading-commission-discount"
+  },
+  {
+    "id": "time-deposit-rate-boost",
+    "title": "Lock In a Higher Rate",
+    "teaser": "Preferential time deposit rates for new funds placed for 3, 6, or 12 months.",
+    "detail": "Boosted rates are available on select currencies when you place new money into a fixed-term time deposit, with tiers based on deposit size.",
+    "relevance_hint": "questions about interest rates, cash deposits, savings, or capital preservation",
+    "cta_label": "View deposit rates",
+    "cta_url": "https://privatebanking.hsbc.com/campaigns/time-deposit-rate-boost"
+  },
+  {
+    "id": "structured-notes-capital-protected",
+    "title": "Structured Notes with Downside Protection",
+    "teaser": "Access market-linked returns with a capital-protected structured note.",
+    "detail": "These notes are designed to participate in the upside of an underlying index or basket while returning principal at maturity, subject to issuer credit risk.",
+    "relevance_hint": "questions about market volatility, hedging, structured products, or cautious equity exposure",
+    "cta_label": "Explore structured notes",
+    "cta_url": "https://privatebanking.hsbc.com/campaigns/structured-notes-capital-protected"
+  },
+  {
+    "id": "premier-relationship-upgrade",
+    "title": "Elevate to a Dedicated Relationship Manager",
+    "teaser": "Qualifying clients can be matched with a dedicated Private Banking relationship manager.",
+    "detail": "Get a named relationship manager, tailored portfolio reviews, and priority access to investment research and events.",
+    "relevance_hint": "questions about personalized advice, portfolio reviews, or wanting more hands-on guidance",
+    "cta_label": "Check eligibility",
+    "cta_url": "https://privatebanking.hsbc.com/campaigns/relationship-manager-upgrade"
+  },
+  {
+    "id": "multi-currency-fx-privileges",
+    "title": "Preferential FX Rates for Investors",
+    "teaser": "Enjoy tighter FX spreads when converting currency to fund your investments.",
+    "detail": "Clients who hold a multi-currency investment account get preferential foreign exchange pricing on conversions above a minimum threshold.",
+    "relevance_hint": "questions about currency exposure, FX rates, international investing, or multi-currency accounts",
+    "cta_label": "See FX privileges",
+    "cta_url": "https://privatebanking.hsbc.com/campaigns/fx-privileges"
+  },
+  {
+    "id": "mutual-fund-fee-waiver",
+    "title": "Subscription Fee Waived on Select Funds",
+    "teaser": "Zero subscription fee on a curated list of mutual funds this quarter.",
+    "detail": "A rotating shortlist of actively managed and index funds is available with the standard subscription fee waived for new investments.",
+    "relevance_hint": "questions about mutual funds, diversified investing, or fund fees",
+    "cta_label": "View fund list",
+    "cta_url": "https://privatebanking.hsbc.com/campaigns/mutual-fund-fee-waiver"
+  },
+  {
+    "id": "ipo-priority-allocation",
+    "title": "Priority Access to New Listings",
+    "teaser": "Private Banking clients get priority allocation access for select IPOs.",
+    "detail": "Where available, eligible clients can request priority allocation in upcoming initial public offerings ahead of general retail subscription.",
+    "relevance_hint": "questions about IPOs, new listings, or early-stage equity opportunities",
+    "cta_label": "Learn about IPO access",
+    "cta_url": "https://privatebanking.hsbc.com/campaigns/ipo-priority-allocation"
+  },
+  {
+    "id": "sustainable-esg-bond",
+    "title": "Invest in a Sustainable Bond Offering",
+    "teaser": "Add a green or sustainability-linked bond to your fixed income allocation.",
+    "detail": "These bonds fund projects with environmental or social objectives and are offered alongside standard fixed income due diligence and ratings information.",
+    "relevance_hint": "questions about ESG investing, sustainability, green bonds, or responsible investing",
+    "cta_label": "Explore ESG bonds",
+    "cta_url": "https://privatebanking.hsbc.com/campaigns/sustainable-bond-offer"
+  },
+  {
+    "id": "lombard-loan-preferential-rate",
+    "title": "Borrow Against Your Portfolio",
+    "teaser": "Preferential rates on Lombard loans secured by your investment portfolio.",
+    "detail": "Unlock liquidity without selling your holdings by borrowing against eligible securities, at a preferential interest rate for a limited campaign period.",
+    "relevance_hint": "questions about liquidity needs, leverage, borrowing, or financing large purchases without selling investments",
+    "cta_label": "See lending rates",
+    "cta_url": "https://privatebanking.hsbc.com/campaigns/lombard-loan-rate"
+  },
+  {
+    "id": "wealth-planning-consultation",
+    "title": "Complimentary Wealth & Legacy Planning Session",
+    "teaser": "Book a complimentary consultation on succession, trusts, and legacy planning.",
+    "detail": "Sit down with a wealth planning specialist to review estate structuring, insurance-based wealth transfer, and cross-border succession considerations.",
+    "relevance_hint": "questions about estate planning, succession, trusts, insurance, or passing wealth to the next generation",
+    "cta_label": "Book a consultation",
+    "cta_url": "https://privatebanking.hsbc.com/campaigns/wealth-legacy-planning"
+  },
+  {
+    "id": "family-wealth-management",
+    "title": "Family Wealth Management, Coordinated",
+    "teaser": "A single view and dedicated team for your family's accounts, entities, and next generation.",
+    "detail": "Bring multiple family members, trusts, and investment entities under one coordinated service, with family governance support and financial education for the next generation.",
+    "relevance_hint": "questions about managing wealth across multiple family members or generations, family offices, family governance, or preparing heirs to manage inherited wealth",
+    "cta_label": "Explore family wealth services",
+    "cta_url": "https://privatebanking.hsbc.com/campaigns/family-wealth-management"
+  }
+]
