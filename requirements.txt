@@ -1,0 +1,4 @@
+fastmcp>=2.13,<3
+openai>=1.60
+uvicorn>=0.30
+python-dotenv>=1.0
