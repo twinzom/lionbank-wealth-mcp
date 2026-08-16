@@ -1,9 +1,15 @@
 import os
+import re
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urljoin
 
+import httpx
 import uvicorn
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from fastmcp.tools.tool import ToolResult
 from openai import OpenAI
+from pydantic import BaseModel, Field
 from starlette.middleware.cors import CORSMiddleware
 
 load_dotenv()
@@ -14,23 +20,270 @@ ALLOWED_DOMAIN = "privatebanking.hsbc.com"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# HSBC's own og:image/twitter:image tags are a generic site-wide logo, not a
+# per-article photo, so we pull the article's hero image out of the page body
+# instead. This id/class is what HSBC's article template currently renders it
+# with — it's a scrape, not a stable API, so any failure just means no image
+# rather than a broken response.
+_HERO_IMAGE_PATTERN = re.compile(
+    r'<img\b[^>]*\bclass="[^"]*smart-image-img[^"]*"[^>]*\bsrc="([^"]+)"'
+    r'|<img\b[^>]*\bsrc="([^"]+)"[^>]*\bclass="[^"]*smart-image-img[^"]*"',
+    re.IGNORECASE,
+)
+
+
+def _fetch_hero_image(page_url: str) -> str | None:
+    try:
+        resp = httpx.get(
+            page_url,
+            timeout=5.0,
+            headers={"User-Agent": "Mozilla/5.0"},
+            follow_redirects=True,
+        )
+        resp.raise_for_status()
+    except httpx.HTTPError:
+        return None
+
+    match = _HERO_IMAGE_PATTERN.search(resp.text)
+    if not match:
+        return None
+    return urljoin(page_url, match.group(1) or match.group(2))
+
 mcp = FastMCP("lionbank-wealth")
 
 SYSTEM_INSTRUCTIONS = f"""You are LionBank Wealth, an assistant that answers questions
 using only the market and wealth insights published by HSBC Private Banking at
-{ALLOWED_DOMAIN}. Search that site for pages relevant to the user's question, then
-answer concisely based on what you find there. Always cite the specific HSBC page(s)
-you used (title and URL). If you cannot find anything relevant on that site, say so
-plainly instead of guessing or falling back on outside knowledge."""
+{ALLOWED_DOMAIN}. Search that site for pages relevant to the user's question. Every
+point in your answer must be grounded in a distinct page you found there, with its
+exact title and URL. If you cannot find anything relevant on that site, return an
+empty points list and use the summary to say so plainly instead of guessing or
+falling back on outside knowledge."""
 
 
-@mcp.tool
-def lionbank_wealth_insight(query: str) -> str:
+class InsightPoint(BaseModel):
+    subtitle: str = Field(
+        description="A short, specific headline for this point, under 8 words, "
+        "e.g. 'Gold outlook stays constructive'."
+    )
+    body: str = Field(
+        description="1-3 sentence explanation of this point, written for a "
+        "private banking client."
+    )
+    citation_title: str = Field(
+        description="The title of the HSBC Private Banking page this point is drawn from."
+    )
+    citation_url: str = Field(
+        description=f"The exact URL of the source page on {ALLOWED_DOMAIN}."
+    )
+
+
+class InsightResponse(BaseModel):
+    summary: str = Field(
+        description="A 1-2 sentence executive summary answering the user's "
+        "question at a glance."
+    )
+    points: list[InsightPoint] = Field(
+        description="3 to 6 key points supporting the summary, each grounded in "
+        "a distinct HSBC Private Banking page. Empty if nothing relevant was found."
+    )
+
+
+WIDGET_URI = "ui://widget/insight-cards.html"
+
+TOOL_META = {
+    "openai/outputTemplate": WIDGET_URI,
+    "openai/toolInvocation/invoking": "Searching HSBC Private Banking insights…",
+    "openai/toolInvocation/invoked": "Found HSBC Private Banking insights",
+}
+
+# Lets the widget iframe load the hero images we pull from HSBC's own pages;
+# without this the CSP blocks the <img> requests and they just fail to load.
+WIDGET_META = {
+    "openai/widgetCSP": {
+        "resource_domains": [
+            f"https://{ALLOWED_DOMAIN}",
+            f"https://*.{ALLOWED_DOMAIN}",
+        ],
+    },
+}
+
+WIDGET_HTML = """<div id="app"></div>
+<style>
+  :root {
+    --lbw-bg: #ffffff;
+    --lbw-fg: #1a1a1a;
+    --lbw-muted: #5c5c5c;
+    --lbw-card-bg: #ffffff;
+    --lbw-card-border: #e6e6e6;
+    --lbw-red: #db0011;
+  }
+  :root[data-theme="dark"] {
+    --lbw-bg: #17181a;
+    --lbw-fg: #f2f2f2;
+    --lbw-muted: #b3b3b3;
+    --lbw-card-bg: #1f2023;
+    --lbw-card-border: #33343a;
+    --lbw-red: #db0011;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --lbw-bg: #17181a;
+      --lbw-fg: #f2f2f2;
+      --lbw-muted: #b3b3b3;
+      --lbw-card-bg: #1f2023;
+      --lbw-card-border: #33343a;
+      --lbw-red: #db0011;
+    }
+  }
+  html, body {
+    margin: 0;
+    background: var(--lbw-bg);
+    color: var(--lbw-fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  #app { padding: 4px 2px 8px; }
+  .lbw-summary {
+    background: var(--lbw-card-bg);
+    border: 1px solid var(--lbw-card-border);
+    border-left: 4px solid var(--lbw-red);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .lbw-summary-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--lbw-red);
+    margin-bottom: 4px;
+  }
+  .lbw-summary-text { font-size: 14px; line-height: 1.45; font-weight: 500; color: var(--lbw-fg); }
+  .lbw-empty { font-size: 13px; color: var(--lbw-muted); padding: 4px 2px; }
+  .lbw-cards { display: flex; flex-direction: column; gap: 10px; }
+  .lbw-card {
+    background: var(--lbw-card-bg);
+    border: 1px solid var(--lbw-card-border);
+    border-left: 4px solid var(--lbw-red);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .lbw-card-image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    background: var(--lbw-card-border);
+  }
+  .lbw-card-content { padding: 12px 14px; }
+  .lbw-card-subtitle { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .lbw-card-body { font-size: 13px; line-height: 1.5; color: var(--lbw-muted); }
+  .lbw-card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--lbw-red);
+    text-decoration: none;
+  }
+  .lbw-card-link:hover { text-decoration: underline; }
+</style>
+<script>
+(function () {
+  function escapeHtml(value) {
+    var div = document.createElement("div");
+    div.textContent = value == null ? "" : String(value);
+    return div.innerHTML;
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value).replace(/"/g, "&quot;");
+  }
+
+  function render(data) {
+    var app = document.getElementById("app");
+    if (!data) {
+      app.innerHTML = "";
+      return;
+    }
+
+    var summaryHtml =
+      '<div class="lbw-summary">' +
+      '<div class="lbw-summary-label">HSBC Private Banking &middot; Insight Summary</div>' +
+      '<div class="lbw-summary-text">' + escapeHtml(data.summary) + "</div>" +
+      "</div>";
+
+    var points = data.points || [];
+    var bodyHtml;
+    if (points.length === 0) {
+      bodyHtml = '<div class="lbw-empty">No related HSBC Private Banking insights were found.</div>';
+    } else {
+      bodyHtml =
+        '<div class="lbw-cards">' +
+        points
+          .map(function (point) {
+            var image = point.image_url
+              ? '<img class="lbw-card-image" src="' + escapeAttr(point.image_url) +
+                '" alt="" loading="lazy" referrerpolicy="no-referrer" ' +
+                'onerror="this.remove()">'
+              : "";
+            var link = point.citation_url
+              ? '<a class="lbw-card-link" href="' + escapeAttr(point.citation_url) +
+                '" target="_blank" rel="noopener noreferrer">Read more: ' +
+                escapeHtml(point.citation_title || "Source") + " &rarr;</a>"
+              : "";
+            return (
+              '<div class="lbw-card">' +
+              image +
+              '<div class="lbw-card-content">' +
+              '<div class="lbw-card-subtitle">' + escapeHtml(point.subtitle) + "</div>" +
+              '<div class="lbw-card-body">' + escapeHtml(point.body) + "</div>" +
+              link +
+              "</div>" +
+              "</div>"
+            );
+          })
+          .join("") +
+        "</div>";
+    }
+
+    app.innerHTML = summaryHtml + bodyHtml;
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme === "dark" ? "dark" : "light");
+  }
+
+  window.addEventListener("openai:set_globals", function (event) {
+    var globals = (event && event.detail && event.detail.globals) || {};
+    if (globals.theme) applyTheme(globals.theme);
+    if (globals.toolOutput) render(globals.toolOutput);
+  });
+
+  var api = window.openai;
+  if (api) {
+    applyTheme(api.theme);
+    if (api.toolOutput) render(api.toolOutput);
+  }
+})();
+</script>
+"""
+
+
+@mcp.resource(WIDGET_URI, mime_type="text/html+skybridge", meta=WIDGET_META)
+def insight_cards_widget() -> str:
+    return WIDGET_HTML
+
+
+@mcp.tool(meta=TOOL_META)
+def lionbank_wealth_insight(query: str) -> ToolResult:
     """Answer a market, economic, or wealth-management question using HSBC Private
     Banking's published insights (privatebanking.hsbc.com). Use this whenever the
     user asks what HSBC thinks, forecasts, or has published about markets, economies,
     investment themes, or wealth strategy."""
-    response = client.responses.create(
+    response = client.responses.parse(
         model=OPENAI_MODEL,
         instructions=SYSTEM_INSTRUCTIONS,
         input=query,
@@ -40,8 +293,33 @@ def lionbank_wealth_insight(query: str) -> str:
                 "filters": {"allowed_domains": [ALLOWED_DOMAIN]},
             }
         ],
+        text_format=InsightResponse,
     )
-    return response.output_text
+    insight = response.output_parsed
+
+    if insight.points:
+        with ThreadPoolExecutor(max_workers=len(insight.points)) as pool:
+            hero_images = list(
+                pool.map(_fetch_hero_image, [p.citation_url for p in insight.points])
+            )
+    else:
+        hero_images = []
+
+    fallback_lines = [insight.summary, ""]
+    points_payload = []
+    for point, image_url in zip(insight.points, hero_images):
+        fallback_lines.append(f"**{point.subtitle}**")
+        fallback_lines.append(point.body)
+        fallback_lines.append(f"Source: {point.citation_title}")
+        fallback_lines.append("")
+        points_payload.append({**point.model_dump(), "image_url": image_url})
+    fallback_text = "\n".join(fallback_lines).strip()
+
+    return ToolResult(
+        content=fallback_text,
+        structured_content={"summary": insight.summary, "points": points_payload},
+        meta=TOOL_META,
+    )
 
 
 if __name__ == "__main__":
